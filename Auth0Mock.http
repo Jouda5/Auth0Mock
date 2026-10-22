@@ -1,0 +1,59 @@
+@baseUrl = https://localhost:7443
+@clientId = squirrel-local
+@clientSecret = local-development-only
+@code = paste-code-from-callback
+@accessToken = paste-access-token
+@refreshToken = paste-refresh-token
+
+### Health
+GET {{baseUrl}}/health
+
+### Discovery
+GET {{baseUrl}}/.well-known/openid-configuration
+
+### Public keys
+GET {{baseUrl}}/.well-known/jwks.json
+
+### Email-only login (open in a browser to keep its CSRF cookie)
+GET {{baseUrl}}/authorize?response_type=code&client_id={{clientId}}&redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fcallback&scope=openid%20profile%20email%20offline_access&audience=https%3A%2F%2Fsquirrel.local%2Fapi&state=example-state
+
+### Submit login (use matching values and cookie from the GET login page)
+POST {{baseUrl}}/authorize
+Content-Type: application/x-www-form-urlencoded
+Cookie: auth0mock.csrf=paste-cookie
+
+request_id=paste-request-id&email=developer%40example.com&__RequestVerificationToken=paste-form-token
+
+### Exchange the single-use code
+POST {{baseUrl}}/oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&client_id={{clientId}}&client_secret={{clientSecret}}&code={{code}}&redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fcallback
+
+### Current profile
+GET {{baseUrl}}/userinfo
+Authorization: Bearer {{accessToken}}
+
+### Refresh and rotate (replace stored refresh token with the returned value)
+POST {{baseUrl}}/oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=refresh_token&client_id={{clientId}}&client_secret={{clientSecret}}&refresh_token={{refreshToken}}
+
+### Revoke a refresh-token family
+POST {{baseUrl}}/oauth/revoke
+Content-Type: application/x-www-form-urlencoded
+
+client_id={{clientId}}&client_secret={{clientSecret}}&token={{refreshToken}}&token_type_hint=refresh_token
+
+### Logout
+GET {{baseUrl}}/v2/logout?client_id={{clientId}}&returnTo=http%3A%2F%2Flocalhost%3A5173
+
+### Invalid redirect (400; never redirects)
+GET {{baseUrl}}/authorize?response_type=code&client_id={{clientId}}&redirect_uri=https%3A%2F%2Funtrusted.example%2Fcallback&scope=openid
+
+### Missing access token (401)
+GET {{baseUrl}}/userinfo
+
+### OpenAPI
+GET {{baseUrl}}/openapi/v1.json

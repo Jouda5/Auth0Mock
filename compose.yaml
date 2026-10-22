@@ -1,0 +1,23 @@
+services:
+  auth0mock:
+    build: .
+    ports:
+      - "127.0.0.1:7443:7443"
+    environment:
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/localhost.pfx
+      ASPNETCORE_Kestrel__Certificates__Default__Password: ${AUTH0MOCK_CERT_PASSWORD:?Set AUTH0MOCK_CERT_PASSWORD to the development certificate password}
+    volumes:
+      - type: bind
+        source: ${AUTH0MOCK_CERT_PATH:-./.certs/localhost.pfx}
+        target: /https/localhost.pfx
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true

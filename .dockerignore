@@ -1,0 +1,15 @@
+**
+!global.json
+!Directory.Build.props
+!NuGet.config
+!LICENSE
+!src/
+!src/Auth0Mock/
+!src/Auth0Mock/**
+src/Auth0Mock/bin/
+src/Auth0Mock/obj/
+src/Auth0Mock/Properties/
+**/*.pfx
+**/*.p12
+**/*.pem
+**/*.key
