@@ -44,7 +44,7 @@ This command hosts a long-running web server; it stays running until stopped. Ch
 Public images are available on [Docker Hub](https://hub.docker.com/r/jouda5/auth0mock) for Linux AMD64 and ARM64:
 
 ```sh
-docker pull jouda5/auth0mock:0.1.0
+docker pull jouda5/auth0mock:0.1.1
 ```
 
 For a quick, explicitly insecure **loopback-only** HTTP test (no SDK or certificate required):
@@ -55,7 +55,7 @@ docker run --rm --name auth0mock \
   -e ASPNETCORE_URLS=http://+:8080 \
   -e MockAuth__Issuer=http://localhost:8080/ \
   -e MockAuth__AllowInsecureHttp=true \
-  jouda5/auth0mock:0.1.0
+  jouda5/auth0mock:0.1.1
 ```
 
 Discovery is at `http://localhost:8080/.well-known/openid-configuration`. Point your local application at this issuer and register its callback URL. HTTPS is recommended for browser integration.
@@ -85,7 +85,7 @@ docker compose down
 
 You may copy [`.env.example`](.env.example) to `.env` to supply the certificate variables. Never commit `.env`, certificates, private keys, or real Auth0 secrets.
 
-Compose defaults to `jouda5/auth0mock:0.1.0`. Set `AUTH0MOCK_IMAGE=jouda5/auth0mock:latest` to follow the newest release, or use a release digest for an immutable pin. To build local source instead, use `docker compose up --build --wait`.
+Compose defaults to `jouda5/auth0mock:0.1.1`. Set `AUTH0MOCK_IMAGE=jouda5/auth0mock:latest` to follow the newest release, or use a release digest for an immutable pin. To build local source instead, use `docker compose up --build --wait`.
 
 For a completely self-contained Docker verification, with temporary certificates and automatic cleanup:
 
@@ -98,7 +98,7 @@ That script additionally requires Python 3 and OpenSSL, uses real TLS verificati
 To run the same verification against a published image instead of building source:
 
 ```sh
-AUTH0MOCK_IMAGE=jouda5/auth0mock:0.1.0 bash scripts/verify-docker.sh
+AUTH0MOCK_IMAGE=jouda5/auth0mock:0.1.1 bash scripts/verify-docker.sh
 ```
 
 ## Releases and image versions

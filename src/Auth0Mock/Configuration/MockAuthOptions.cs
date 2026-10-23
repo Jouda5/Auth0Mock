@@ -9,6 +9,7 @@ public sealed class MockAuthOptions
     public string Issuer { get; init; } = "";
     public string? ClientId { get; init; }
     public string? ClientSecret { get; init; }
+    public string[] PublicClientIds { get; init; } = [];
     public string? Audience { get; init; }
     public string[] RedirectUris { get; init; } = [];
     public string[] LogoutRedirectUris { get; init; } = [];
@@ -42,6 +43,12 @@ public sealed class MockAuthOptionsValidator : IValidateOptions<MockAuthOptions>
             || HasInvalidOptionalValue(options.Audience))
         {
             errors.Add("Optional ClientId, ClientSecret and Audience values must be nonempty and no longer than 1024 characters.");
+        }
+
+        if (options.PublicClientIds.Any(value => string.IsNullOrWhiteSpace(value) || value.Length > 1024)
+            || options.PublicClientIds.Distinct(StringComparer.Ordinal).Count() != options.PublicClientIds.Length)
+        {
+            errors.Add("PublicClientIds must contain unique, nonempty client IDs no longer than 1024 characters.");
         }
 
         ValidateRedirects(options.RedirectUris, "RedirectUris", errors);

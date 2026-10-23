@@ -8,6 +8,7 @@ public interface IMockIdentityService
     string CompleteAuthorization(string requestId, string email);
     TokenResponse Exchange(TokenRequest request, string authenticatedClientId);
     string AuthenticateClient(string clientId, string clientSecret);
+    string AuthenticatePublicClient(string clientId);
     string ValidateLogout(string clientId, string returnTo);
     void Revoke(string token, string authenticatedClientId);
     void RemoveExpiredGrants();

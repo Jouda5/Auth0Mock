@@ -26,7 +26,7 @@ public static class OAuthEndpoints
                 issuer, issuer + "authorize", issuer + "oauth/token", issuer + "userinfo",
                 issuer + ".well-known/jwks.json", issuer + "oauth/revoke", issuer + "v2/logout",
                 ["code"], ["authorization_code", "refresh_token"], ["public"], ["RS256"],
-                ["client_secret_post", "client_secret_basic"], ["S256"],
+                ["client_secret_post", "client_secret_basic", "none"], ["S256"],
                 ["openid", "profile", "email", "offline_access"],
                 ["sub", "email", "email_verified", "name", "nickname", "iss", "aud", "exp", "iat", "nonce"]));
         }).WithSummary("OpenID Connect discovery metadata.");
@@ -41,7 +41,7 @@ public static class OAuthEndpoints
             .Produces(StatusCodes.Status302Found);
         app.MapPost("/oauth/token", ExchangeToken)
             .WithSummary("Exchange an authorization code or rotate a refresh token.")
-            .WithDescription("Form-encoded input; authenticate using client_secret_post or client_secret_basic.")
+            .WithDescription("Form-encoded input; confidential clients use client_secret_post or client_secret_basic, while registered public clients use no client authentication and must use S256 PKCE.")
             .Accepts<TokenRequest>("application/x-www-form-urlencoded")
             .Produces<TokenResponse>()
             .Produces<OAuthError>(StatusCodes.Status400BadRequest);
@@ -163,7 +163,9 @@ public static class OAuthEndpoints
                 throw new OAuthException("invalid_client", "The Basic client credentials are malformed.", StatusCodes.Status401Unauthorized);
             }
         }
-        return identities.AuthenticateClient(clientId ?? "", secret ?? "");
+        return secret is null
+            ? identities.AuthenticatePublicClient(clientId ?? "")
+            : identities.AuthenticateClient(clientId ?? "", secret);
     }
 
     private static async Task<IFormCollection> RequireFormAsync(HttpRequest request, CancellationToken ct)
