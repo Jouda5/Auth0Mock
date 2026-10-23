@@ -16,9 +16,9 @@ public sealed class MockApplication : WebApplicationFactory<Program>
 {
     public const string Issuer = "https://localhost:7443/";
     public const string RedirectUri = "http://localhost:5173/callback";
-    public const string ClientId = "squirrel-local";
+    public const string ClientId = "local-client";
     public const string ClientSecret = "local-development-only";
-    public const string Audience = "https://squirrel.local/api";
+    public const string Audience = "https://api.example.com/";
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,

@@ -52,9 +52,9 @@ public sealed class OAuthFlowTests(MockApplication application) : IClassFixture<
     {
         using var permissiveApplication = new MockApplication(configureRegisteredClient: false);
         using var browser = permissiveApplication.Browser();
-        const string existingClientId = "existing-squirrel-client";
+        const string existingClientId = "existing-client";
         const string existingClientSecret = "synthetic-test-of-existing-client-secret";
-        const string existingAudience = "https://api.dev.squirrel.rws.com/";
+        const string existingAudience = "https://api.dev.example.com/";
         var parameters = AuthorizeParameters();
         parameters["client_id"] = existingClientId;
         parameters["audience"] = existingAudience;
@@ -384,7 +384,7 @@ public sealed class OAuthFlowTests(MockApplication application) : IClassFixture<
     [Fact]
     public async Task PublicSpaClientUsesPkceSecretlessTokensAndAllowlistedCors()
     {
-        const string spaClientId = "squirrel-spa";
+        const string spaClientId = "example-spa";
         using var spaApplication = application.WithWebHostBuilder(builder =>
             builder.ConfigureAppConfiguration((_, configuration) =>
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
