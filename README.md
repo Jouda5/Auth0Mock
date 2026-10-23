@@ -224,7 +224,7 @@ npx playwright install chromium
 npm test
 ```
 
-On Linux, use `npx playwright install --with-deps chromium` to include system dependencies. Optionally set `AUTH0MOCK_CHROME_PATH` to an installed Chrome executable instead of downloading Chromium. These tests start and stop an isolated loopback HTTP instance on a temporary port, intercept synthetic callbacks without contacting Squirrel, and leave your existing HTTPS mock instance untouched. They exercise actual browser CSP enforcement, click and Enter submission, email recall/clearing, duplicate-submission protection, and failure recovery.
+On Linux, use `npx playwright install --with-deps chromium` to include system dependencies. Optionally set `AUTH0MOCK_CHROME_PATH` to an installed Chrome executable instead of downloading Chromium. These tests start and stop an isolated loopback HTTP instance and a synthetic callback server on temporary ports, never contact Squirrel, and leave your existing HTTPS mock instance untouched. They exercise actual browser CSP enforcement, click and Enter submission, email recall/clearing, duplicate-submission protection, and failure recovery.
 
 Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 

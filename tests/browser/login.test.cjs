@@ -1,18 +1,27 @@
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
+const http = require('node:http');
 const net = require('node:net');
 const path = require('node:path');
 const { before, after, test } = require('node:test');
 const { chromium } = require('playwright');
 
-const callbackUrl = 'http://localhost:5173/callback';
+let callbackUrl;
+let callbackServer;
 let browser;
 let server;
 let baseUrl;
 let output = '';
 
 before(async () => {
+  callbackServer = http.createServer((_request, response) => {
+    response.writeHead(200, { 'Content-Type': 'text/html' });
+    response.end('<h1>Test callback reached</h1>');
+  });
+  callbackServer.listen(0, '127.0.0.1');
+  await once(callbackServer, 'listening');
+  callbackUrl = `http://127.0.0.1:${callbackServer.address().port}/callback`;
   const listener = net.createServer();
   listener.listen(0, '127.0.0.1');
   await once(listener, 'listening');
@@ -29,6 +38,7 @@ before(async () => {
       ASPNETCORE_URLS: baseUrl,
       MockAuth__Issuer: `${baseUrl}/`,
       MockAuth__AllowInsecureHttp: 'true',
+      MockAuth__RedirectUris__0: callbackUrl,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -59,14 +69,20 @@ after(async () => {
       await browser.close();
     }
   } finally {
-    if (server && server.exitCode === null) {
-      const exited = once(server, 'exit');
-      server.kill('SIGTERM');
-      const timer = setTimeout(() => server.kill('SIGKILL'), 5000);
-      try {
-        await exited;
-      } finally {
-        clearTimeout(timer);
+    try {
+      if (server && server.exitCode === null) {
+        const exited = once(server, 'exit');
+        server.kill('SIGTERM');
+        const timer = setTimeout(() => server.kill('SIGKILL'), 5000);
+        try {
+          await exited;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+    } finally {
+      if (callbackServer) {
+        await new Promise((resolve, reject) => callbackServer.close(error => error ? reject(error) : resolve()));
       }
     }
   }
@@ -86,10 +102,6 @@ async function withPage(run) {
   try {
     const page = await context.newPage();
     page.setDefaultTimeout(5000);
-    await page.route(`${callbackUrl}**`, route => route.fulfill({
-      contentType: 'text/html',
-      body: '<h1>Test callback reached</h1>',
-    }));
     await run(page, context);
   } finally {
     await context.close();
@@ -168,7 +180,8 @@ test('blocked redirects show a recovery message instead of a permanent spinner',
 test('missing navigation times out at 10 seconds, and duplicate submits are ignored', async () => {
   await withPage(async page => {
     await page.goto(loginUrl());
-    await page.clock.install();
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+    await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
     await page.evaluate(() => {
       window.testSubmissions = 0;
       document.querySelector('#login-form').addEventListener('submit', event => {
