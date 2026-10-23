@@ -25,6 +25,8 @@ Run `dotnet format Auth0Mock.sln --no-restore` to apply formatting. Builds treat
 
 ## Pull requests
 
+`main` is protected, including for administrators: direct pushes, force-pushes, and branch deletion are blocked. Use a feature branch and pull request, obtain maintainer approval, and resolve review conversations before merging. Both `dotnet` and `docker` GitHub Actions checks must pass against the current base branch. Squash or rebase merges preserve the required linear history.
+
 - Keep changes focused and explain the behavior being changed.
 - Add regression tests for protocol behavior, validation, lifecycle, and error paths.
 - Run browser tests for login UI and browser security-header changes; HTTP clients do not enforce CSP.
@@ -56,14 +58,15 @@ One-time setup:
 
 For each release:
 
-1. Ensure CI is green and the release commit is on `main`. Choose a version newer than every published release.
-2. Update the pinned Docker image version in `compose.yaml` and the README examples, and commit those changes. Describe breaking changes explicitly in the commit or pull request.
-3. Push the commit and an annotated tag (replace the example with the new version):
+1. Choose a version newer than every published release. On a feature branch, update the pinned Docker image version in `compose.yaml`, `.env.example`, and the README examples alongside the release changes. Describe breaking changes explicitly in the pull request.
+2. Open a pull request targeting `main`, wait for both required CI checks, and obtain maintainer approval before merging. Do not push release commits directly to `main`.
+3. Squash or rebase merge the approved pull request through GitHub.
+4. Fetch the merged `main` and tag that commit, not the feature branch (replace the example with the new version):
 
    ```sh
-   git push origin main
-   git tag -a v0.1.0 -m "Release v0.1.0"
-   git push origin v0.1.0
+   git fetch origin main
+   git tag -a v0.1.1 origin/main -m "Release v0.1.1"
+   git push origin v0.1.1
    gh run list --workflow release.yml --repo Jouda5/Auth0Mock
    ```
 

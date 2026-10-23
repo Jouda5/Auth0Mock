@@ -26,6 +26,10 @@ public sealed class MockIdentityService(IOptions<MockAuthOptions> options, TimeP
         {
             throw new OAuthException("invalid_request", "The client or exact redirect URI is not registered.");
         }
+        if (IsPublicClient(request.ClientId) && request.CodeChallenge is null)
+        {
+            throw new OAuthException("invalid_request", "Public clients must use S256 PKCE.");
+        }
 
         if (string.IsNullOrWhiteSpace(request.Audience) || request.Audience.Length > 1024
             || (settings.Audience is not null && request.Audience != settings.Audience))
@@ -86,7 +90,8 @@ public sealed class MockIdentityService(IOptions<MockAuthOptions> options, TimeP
 
     public string AuthenticateClient(string clientId, string clientSecret)
     {
-        if (!IsAllowedClientId(clientId) || string.IsNullOrWhiteSpace(clientSecret) || clientSecret.Length > 1024)
+        if (!IsAllowedClientId(clientId) || IsPublicClient(clientId)
+            || string.IsNullOrWhiteSpace(clientSecret) || clientSecret.Length > 1024)
         {
             throw InvalidClient();
         }
@@ -103,6 +108,9 @@ public sealed class MockIdentityService(IOptions<MockAuthOptions> options, TimeP
 
         return clientId;
     }
+
+    public string AuthenticatePublicClient(string clientId) =>
+        IsPublicClient(clientId) ? clientId : throw InvalidClient();
 
     public TokenResponse Exchange(TokenRequest request, string authenticatedClientId)
     {
@@ -210,7 +218,11 @@ public sealed class MockIdentityService(IOptions<MockAuthOptions> options, TimeP
 
     private bool IsAllowedClientId(string clientId) =>
         clientId.Length is > 0 and <= 1024
-        && (settings.ClientId is null || clientId == settings.ClientId);
+        && (settings.ClientId is null || clientId == settings.ClientId
+            || settings.PublicClientIds.Contains(clientId, StringComparer.Ordinal));
+
+    private bool IsPublicClient(string clientId) =>
+        settings.PublicClientIds.Contains(clientId, StringComparer.Ordinal);
 
     private static OAuthException InvalidClient() =>
         new("invalid_client", "Valid client credentials are required.", StatusCodes.Status401Unauthorized);

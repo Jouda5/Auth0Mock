@@ -45,6 +45,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 builder.Services.AddSingleton<IValidateOptions<MockAuthOptions>, MockAuthOptionsValidator>();
 builder.Services.AddOptions<MockAuthOptions>().BindConfiguration(MockAuthOptions.SectionName).ValidateOnStart();
+builder.Services.AddCors();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ITokenIssuer, TokenIssuer>();
 builder.Services.AddSingleton<IMockIdentityService, MockIdentityService>();
@@ -63,9 +64,11 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 var settings = app.Services.GetRequiredService<IOptions<MockAuthOptions>>().Value;
-var callbackOrigins = string.Join(" ", settings.RedirectUris
+var callbackOrigins = settings.RedirectUris
     .Select(value => new Uri(value).GetLeftPart(UriPartial.Authority))
-    .Distinct(StringComparer.Ordinal));
+    .Distinct(StringComparer.Ordinal)
+    .ToArray();
+var callbackOriginsPolicy = string.Join(" ", callbackOrigins);
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.Use(async (context, next) =>
@@ -78,7 +81,7 @@ app.Use(async (context, next) =>
         context.Response.Headers["Referrer-Policy"] = "no-referrer";
         context.Response.Headers["Content-Security-Policy"] =
             "default-src 'none'; style-src 'self'; script-src 'self'; "
-            + $"form-action 'self' {callbackOrigins}; frame-ancestors 'none'; base-uri 'none'";
+            + $"form-action 'self' {callbackOriginsPolicy}; frame-ancestors 'none'; base-uri 'none'";
         return Task.CompletedTask;
     });
     if (!context.Request.IsHttps && !settings.AllowInsecureHttp && context.Request.Path != "/health")
@@ -87,6 +90,10 @@ app.Use(async (context, next) =>
     }
     await next(context);
 });
+app.UseCors(policy => policy
+    .WithOrigins(callbackOrigins)
+    .WithMethods("GET", "POST", "OPTIONS")
+    .WithHeaders("Authorization", "Content-Type"));
 app.UseStaticFiles();
 app.UseAntiforgery();
 app.MapOAuthEndpoints();

@@ -110,6 +110,7 @@ public sealed class OAuthFlowTests(MockApplication application) : IClassFixture<
         Assert.Equal(Issuer, metadata!.Issuer);
         Assert.Equal(Issuer + "oauth/token", metadata.TokenEndpoint);
         Assert.Contains("refresh_token", metadata.GrantTypesSupported);
+        Assert.Contains("none", metadata.TokenEndpointAuthMethodsSupported);
         using var keys = JsonDocument.Parse(await browser.GetStringAsync("/.well-known/jwks.json"));
         var key = keys.RootElement.GetProperty("keys")[0];
         Assert.Equal("RS256", key.GetProperty("alg").GetString());
@@ -378,6 +379,91 @@ public sealed class OAuthFlowTests(MockApplication application) : IClassFixture<
         form["code_verifier"] = verifier;
         Assert.Equal(HttpStatusCode.OK,
             (await browser.PostAsync("/oauth/token", new FormUrlEncodedContent(form))).StatusCode);
+    }
+
+    [Fact]
+    public async Task PublicSpaClientUsesPkceSecretlessTokensAndAllowlistedCors()
+    {
+        const string spaClientId = "squirrel-spa";
+        using var spaApplication = application.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["MockAuth:PublicClientIds:0"] = spaClientId,
+                })));
+        using var browser = spaApplication.CreateClient(new()
+        {
+            BaseAddress = new(Issuer),
+            AllowAutoRedirect = false,
+        });
+
+        var unregisteredClient = new Dictionary<string, string>
+        {
+            ["grant_type"] = "authorization_code",
+            ["client_id"] = ClientId,
+        };
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await browser.PostAsync("/oauth/token", new FormUrlEncodedContent(unregisteredClient))).StatusCode);
+
+        var parameters = AuthorizeParameters();
+        parameters["client_id"] = spaClientId;
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await browser.GetAsync(QueryHelpers.AddQueryString("/authorize", parameters))).StatusCode);
+
+        var verifier = Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));
+        parameters["code_challenge"] = Base64UrlEncoder.Encode(
+            SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
+        parameters["code_challenge_method"] = "S256";
+        var callback = await LoginAsync(browser, parameters: parameters);
+        var tokenRequest = new HttpRequestMessage(HttpMethod.Post, "/oauth/token")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "authorization_code",
+                ["client_id"] = spaClientId,
+                ["code"] = QueryHelpers.ParseQuery(callback.Query)["code"].ToString(),
+                ["redirect_uri"] = RedirectUri,
+                ["code_verifier"] = verifier,
+            }),
+        };
+        tokenRequest.Headers.Add("Origin", "http://localhost:5173");
+        var tokenResponse = await browser.SendAsync(tokenRequest);
+        Assert.Equal(HttpStatusCode.OK, tokenResponse.StatusCode);
+        Assert.Equal("http://localhost:5173",
+            tokenResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        var tokens = (await tokenResponse.Content.ReadFromJsonAsync<TokenResponse>(Json))!;
+        Assert.NotNull(tokens.RefreshToken);
+
+        var refreshRequest = new HttpRequestMessage(HttpMethod.Post, "/oauth/token")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["client_id"] = spaClientId,
+                ["refresh_token"] = tokens.RefreshToken!,
+            }),
+        };
+        refreshRequest.Headers.Add("Origin", "http://localhost:5173");
+        var refreshedResponse = await browser.SendAsync(refreshRequest);
+        Assert.Equal(HttpStatusCode.OK, refreshedResponse.StatusCode);
+        Assert.Equal("http://localhost:5173",
+            refreshedResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, "/oauth/token");
+        preflight.Headers.Add("Origin", "http://localhost:5173");
+        preflight.Headers.Add("Access-Control-Request-Method", "POST");
+        preflight.Headers.Add("Access-Control-Request-Headers", "content-type");
+        var preflightResponse = await browser.SendAsync(preflight);
+        Assert.Equal(HttpStatusCode.NoContent, preflightResponse.StatusCode);
+        Assert.Equal("http://localhost:5173",
+            preflightResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+
+        using var rejectedPreflight = new HttpRequestMessage(HttpMethod.Options, "/oauth/token");
+        rejectedPreflight.Headers.Add("Origin", "https://untrusted.example");
+        rejectedPreflight.Headers.Add("Access-Control-Request-Method", "POST");
+        rejectedPreflight.Headers.Add("Access-Control-Request-Headers", "content-type");
+        var rejectedOrigin = await browser.SendAsync(rejectedPreflight);
+        Assert.False(rejectedOrigin.Headers.Contains("Access-Control-Allow-Origin"));
     }
 
     [Fact]
