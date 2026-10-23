@@ -1,5 +1,6 @@
 services:
   auth0mock:
+    image: ${AUTH0MOCK_IMAGE:-jouda5/auth0mock:0.1.0}
     build: .
     ports:
       - "127.0.0.1:7443:7443"

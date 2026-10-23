@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Validate release version and source
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Release tags must be stable SemVer versions, for example v0.1.0."
+            exit 1
+          fi
+          git merge-base --is-ancestor HEAD origin/main
+          releases="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')"
+          previous="$(printf '%s\n' "$releases" \
+            | grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || test "$?" -eq 1)"
+          if test -n "$previous"; then
+            newest="$(printf '%s\n' "$previous" | sort -V | tail -n 1)"
+            highest="$(printf '%s\n' "$newest" "$GITHUB_REF_NAME" | sort -V | tail -n 1)"
+            if test "$highest" != "$GITHUB_REF_NAME" || test "$newest" = "$GITHUB_REF_NAME"; then
+              echo "::error::Release version must be newer than $newest. Never reuse a released tag."
+              exit 1
+            fi
+          fi
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Check Docker Hub configuration
+        env:
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          test -n "$DOCKERHUB_USERNAME" || { echo "::error::Set the DOCKERHUB_USERNAME repository variable."; exit 1; }
+          test -n "$DOCKERHUB_TOKEN" || { echo "::error::Set the DOCKERHUB_TOKEN repository secret."; exit 1; }
+
+  test:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        id: metadata
+        with:
+          images: jouda5/auth0mock
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(needs.version.outputs.version, '0.') }}
+          flavor: |
+            latest=true
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        id: build
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.version.outputs.version }}
+            REVISION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+      - name: Verify published image over HTTPS
+        env:
+          AUTH0MOCK_IMAGE: jouda5/auth0mock@${{ steps.build.outputs.digest }}
+        run: bash scripts/verify-docker.sh
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        shell: bash
+        run: |
+          printf 'Docker Hub: `docker pull jouda5/auth0mock:%s`\n\nImmutable image: `jouda5/auth0mock@%s`\n\nPlatforms: `linux/amd64`, `linux/arm64`.\n\nDevelopment and testing only; never use as a production identity provider.\n' \
+            "${GITHUB_REF_NAME#v}" "$IMAGE_DIGEST" > "$RUNNER_TEMP/release-notes.txt"
+          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes \
+            --title "Auth0Mock $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.txt"

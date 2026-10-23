@@ -41,7 +41,28 @@ This command hosts a long-running web server; it stays running until stopped. Ch
 
 ## Quick start: Docker
 
-Requires Docker Compose and an HTTPS certificate trusted by your browser and consuming API. The image does not contain certificates or private keys.
+Public images are available on [Docker Hub](https://hub.docker.com/r/jouda5/auth0mock) for Linux AMD64 and ARM64:
+
+```sh
+docker pull jouda5/auth0mock:0.1.0
+```
+
+For a quick, explicitly insecure **loopback-only** HTTP test (no SDK or certificate required):
+
+```sh
+docker run --rm --name auth0mock \
+  -p 127.0.0.1:8080:8080 \
+  -e ASPNETCORE_URLS=http://+:8080 \
+  -e MockAuth__Issuer=http://localhost:8080/ \
+  -e MockAuth__AllowInsecureHttp=true \
+  jouda5/auth0mock:0.1.0
+```
+
+Discovery is at `http://localhost:8080/.well-known/openid-configuration`. Point your local application at this issuer and register its callback URL. HTTPS is recommended for browser integration.
+
+### HTTPS with Compose
+
+Clone [this repository](https://github.com/Jouda5/Auth0Mock) and run the following commands from its root. Requires Docker Compose and an HTTPS certificate trusted by your browser and consuming API. The image does not contain certificates or private keys.
 
 Export an existing trusted .NET development certificate:
 
@@ -50,7 +71,8 @@ mkdir -p .certs
 export AUTH0MOCK_CERT_PASSWORD='choose-a-local-certificate-password'
 dotnet dev-certs https --trust
 dotnet dev-certs https --export-path .certs/localhost.pfx --password "$AUTH0MOCK_CERT_PASSWORD"
-docker compose up --build --wait
+docker compose pull
+docker compose up --no-build --wait
 ```
 
 If your export is readable only by its owner, give the non-root container read access to the **password-encrypted** PFX (or an appropriate file ACL). The certificate password is passed at runtime, never baked into the image.
@@ -63,6 +85,8 @@ docker compose down
 
 You may copy [`.env.example`](.env.example) to `.env` to supply the certificate variables. Never commit `.env`, certificates, private keys, or real Auth0 secrets.
 
+Compose defaults to `jouda5/auth0mock:0.1.0`. Set `AUTH0MOCK_IMAGE=jouda5/auth0mock:latest` to follow the newest release, or use a release digest for an immutable pin. To build local source instead, use `docker compose up --build --wait`.
+
 For a completely self-contained Docker verification, with temporary certificates and automatic cleanup:
 
 ```sh
@@ -70,6 +94,23 @@ bash scripts/verify-docker.sh
 ```
 
 That script additionally requires Python 3 and OpenSSL, uses real TLS verification, verifies JWT signatures using the published JWKS, and stops its own containers afterwards. It needs port 7443 free and does not modify the host certificate trust store or any consuming application.
+
+To run the same verification against a published image instead of building source:
+
+```sh
+AUTH0MOCK_IMAGE=jouda5/auth0mock:0.1.0 bash scripts/verify-docker.sh
+```
+
+## Releases and image versions
+
+Releases use [Semantic Versioning](https://semver.org/), starting at `0.1.0`. The Git tag `vX.Y.Z` is the version source of truth; the release workflow embeds it in the application and OCI image metadata. See [the release procedure](CONTRIBUTING.md#releasing) for maintainers.
+
+- Patch: backwards-compatible fixes; minor: new functionality; major: breaking changes.
+- During `0.x`, minor releases may introduce breaking changes; patch releases remain compatible.
+- Each stable release publishes `X.Y.Z`, `X.Y`, and `latest` image tags. From `1.0.0`, it also publishes `X`. There is deliberately no `0` alias.
+- Use exact versions for repeatability, digests for immutable deployments, and moving aliases only when automatic updates are wanted.
+- Only stable versions are currently supported, not prerelease or build-metadata tags. Publish versions in increasing order and never move or reuse a released Git tag.
+- CI must pass before images are published. The workflow then verifies the published image over HTTPS before creating the GitHub release, including its image digest and generated changelog.
 
 ## Configure your application
 
@@ -125,13 +166,13 @@ Array overrides follow .NET's index-based merge rules: overriding index 0 does *
 
 The configured issuer is authoritative; request Host and forwarded headers never change token issuers or discovery URLs. Omitted client and audience settings deliberately make the mock permissive; the application enforces Development-only startup, and the default Compose binding is loopback-only. Retain exact redirect allowlists and never expose the mock beyond loopback. If using a custom hostname, update `AllowedHosts` and ensure the browser and API can both resolve and trust it. Container-to-container callers must also be able to reach that same advertised issuer; `localhost` inside another container refers to that other container.
 
-For HTTP-only tests, explicitly set `MockAuth__AllowInsecureHttp=true`, a loopback HTTP issuer, and `ASPNETCORE_URLS`. Do not disable certificate validation to work around HTTPS setup.
+For an SPA, add its client ID and exact callback URL, for example `MockAuth__PublicClientIds__0=my-spa-client` and `MockAuth__RedirectUris__0=http://localhost:5173/callback`. The redirect allowlist also defines the allowed browser CORS origins. For HTTP-only tests, explicitly set `MockAuth__AllowInsecureHttp=true`, a loopback HTTP issuer, and `ASPNETCORE_URLS`. Do not disable certificate validation to work around HTTPS setup.
 
 ## Endpoints and behavior
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/authorize` | Validate client, callback, audience, scopes, and optional PKCE; show email form |
+| GET | `/authorize` | Validate client, callback, audience, scopes, and PKCE; show email form |
 | POST | `/authorize` | Submit `request_id`, `email`, and CSRF form token; redirect with `code` and original `state` |
 | POST | `/oauth/token` | Form-encoded `authorization_code` or `refresh_token` grant |
 | GET | `/userinfo` | Profile for a valid bearer access token |

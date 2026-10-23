@@ -1,16 +1,24 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG VERSION=0.0.0-local
+ARG REVISION=unknown
 WORKDIR /source
 COPY global.json Directory.Build.props NuGet.config ./
 COPY src/Auth0Mock/Auth0Mock.csproj src/Auth0Mock/packages.lock.json src/Auth0Mock/
 RUN dotnet restore src/Auth0Mock/Auth0Mock.csproj --locked-mode
 COPY src/Auth0Mock/ src/Auth0Mock/
 RUN dotnet publish src/Auth0Mock/Auth0Mock.csproj --configuration Release --no-restore \
-    --output /app --property:UseAppHost=false
+    --output /app --property:UseAppHost=false --property:Version=$VERSION \
+    --property:SourceRevisionId=$REVISION
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+ARG VERSION=0.0.0-local
+ARG REVISION=unknown
 LABEL org.opencontainers.image.title="Auth0Mock" \
     org.opencontainers.image.description="Development-only Auth0-compatible email identity mock" \
-    org.opencontainers.image.licenses="MIT"
+    org.opencontainers.image.licenses="MIT" \
+    org.opencontainers.image.source="https://github.com/Jouda5/Auth0Mock" \
+    org.opencontainers.image.version=$VERSION \
+    org.opencontainers.image.revision=$REVISION
 WORKDIR /app
 COPY --from=build /app/ ./
 COPY LICENSE ./

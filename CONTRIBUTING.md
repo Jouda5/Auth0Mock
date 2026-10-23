@@ -36,6 +36,40 @@ Run `dotnet format Auth0Mock.sln --no-restore` to apply formatting. Builds treat
 
 By contributing, you agree that your contributions are licensed under the project's [MIT license](LICENSE).
 
+## Releasing
+
+Maintainers publish stable releases from `main` using `vMAJOR.MINOR.PATCH` Git tags. No version file needs to be bumped: the tag drives application and Docker image metadata.
+
+One-time setup:
+
+1. Create the public Docker Hub repository `jouda5/auth0mock`.
+2. Create a Docker Hub personal access token with Read & Write permissions. Never use an account password or commit the token.
+3. Configure the GitHub Actions repository variable and secret:
+
+   ```sh
+   gh variable set DOCKERHUB_USERNAME --repo Jouda5/Auth0Mock --body jouda5
+   gh secret set DOCKERHUB_TOKEN --repo Jouda5/Auth0Mock
+   ```
+
+   The second command prompts securely. Rotate the token when needed.
+
+For each release:
+
+1. Ensure CI is green and the release commit is on `main`. Choose a version newer than every published release.
+2. Update the pinned Docker image version in `compose.yaml` and the README examples, and commit those changes. Describe breaking changes explicitly in the commit or pull request.
+3. Push the commit and an annotated tag (replace the example with the new version):
+
+   ```sh
+   git push origin main
+   git tag -a v0.1.0 -m "Release v0.1.0"
+   git push origin v0.1.0
+   gh run list --workflow release.yml --repo Jouda5/Auth0Mock
+   ```
+
+The release workflow rejects invalid or non-increasing versions and commits not on `main`, runs the full CI suite, and builds/pushes Linux AMD64 and ARM64 images with provenance and an SBOM. It then smoke-tests the published digest and creates a GitHub release with generated notes. Image aliases are moving pointers; the release notes contain the immutable digest. Container publication is not atomic: if post-push verification fails, images may exist without a GitHub release. Inspect the failed job before consumers use those images.
+
+If a workflow fails before a GitHub release exists, fix credentials or infrastructure and rerun the failed workflow. Never move an existing tag to include a source fix; make a new patch release. Once a GitHub release exists, reruns are rejected to prevent overwriting released images. Do not manually create a GitHub release before the workflow completes.
+
 ## Community expectations
 
 Be respectful, constructive, and considerate. Discuss ideas and behavior rather than making personal remarks. Harassment and publication of private information are not acceptable.

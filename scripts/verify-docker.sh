@@ -32,7 +32,11 @@ openssl pkcs12 -export -out "$AUTH0MOCK_CERT_PATH" \
 # The bind-mounted key is encrypted; the non-root container needs to read its PFX.
 chmod 644 "$AUTH0MOCK_CERT_PATH"
 
-docker compose --project-name "$project" up --build --detach --wait --wait-timeout 90
+if test -n "${AUTH0MOCK_IMAGE:-}"; then
+  docker compose --project-name "$project" up --no-build --pull always --detach --wait --wait-timeout 90
+else
+  docker compose --project-name "$project" up --build --detach --wait --wait-timeout 90
+fi
 container="$(docker compose --project-name "$project" ps --quiet auth0mock)"
 test "$(docker inspect --format '{{.State.Health.Status}}' "$container")" = healthy
 test "$(docker exec "$container" id -u)" != 0
