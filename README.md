@@ -4,12 +4,14 @@
 
 An independent .NET 10 application implementing the Auth0 endpoints commonly used by web applications. Enter any syntactically valid email, receive signed JWTs and an OpenID Connect profile, and let your application apply its normal authorization rules.
 
+> **AI-generated project:** This project is completely AI generated.
+
 > **Never use this as an authentication system.** Every identity is impersonatable. Email verification is simulated. Bind it to loopback, use isolated test data, and never configure a deployed application to trust this issuer. Auth0Mock is not affiliated with Auth0 or Okta.
 
 ## Features
 
 - Email-only login with no accounts, passwords, external services, or database.
-- Authorization-code flow with confidential-client authentication and optional S256 PKCE.
+- Authorization-code flow for confidential web apps and registered public SPAs using S256 PKCE.
 - RS256-signed access and ID tokens, discovery metadata, and public JWKS.
 - Userinfo, rotating refresh tokens, refresh-reuse detection, and refresh-family revocation.
 - Auth0-compatible `/authorize`, `/oauth/token`, `/userinfo`, and `/v2/logout` paths.
@@ -71,7 +73,7 @@ That script additionally requires Python 3 and OpenSSL, uses real TLS verificati
 
 ## Configure your application
 
-For applications retaining their real client ID, client secret, and API audience, point only the issuer/domain at the mock. By default, client ID, client secret, and audience are unset: any nonempty client credentials and requested audience are accepted, while redirect allowlists and per-client code/refresh-token binding remain enforced. Do not copy credentials out of Key Vault or configure mock credentials in the consuming application.
+For a Regular Web Application retaining its real client ID, client secret, and API audience, point only the issuer/domain at the mock. For an SPA, register its client ID in `PublicClientIds`; public clients exchange codes without a secret and must use S256 PKCE. Only origins from the exact `RedirectUris` allowlist receive browser CORS access. Do not copy credentials out of Key Vault or configure mock credentials in the consuming application.
 
 For the standalone test client shown below, the bundled local client and audience can still be used:
 
@@ -108,6 +110,7 @@ Defaults live in [appsettings.json](src/Auth0Mock/appsettings.json). Use .NET co
 | `Issuer` | `https://localhost:7443/` | Absolute HTTP(S) origin; trailing slash; no path, credentials, query, or fragment |
 | `ClientId` | unset | Any nonempty client ID is accepted when omitted; an explicitly configured ID is enforced |
 | `ClientSecret` | unset | Any nonempty client secret is accepted when omitted; an explicitly configured secret is enforced |
+| `PublicClientIds` | `[]` | IDs of SPAs permitted to use secretless exchanges; S256 PKCE is mandatory |
 | `Audience` | unset | Any requested audience is accepted when omitted; an explicitly configured audience is enforced |
 | `RedirectUris` | See above | Explicit HTTPS or loopback HTTP URLs |
 | `LogoutRedirectUris` | See above | Explicit HTTPS or loopback HTTP URLs |
@@ -139,7 +142,7 @@ For HTTP-only tests, explicitly set `MockAuth__AllowInsecureHttp=true`, a loopba
 | GET | `/health` | Process liveness |
 | GET | `/openapi/v1.json` | OpenAPI document |
 
-Client authentication supports `client_secret_post` and `client_secret_basic`. If supplied, PKCE must use S256. Both token grants return an access token, `expires_in`, `token_type`, scopes, and ID token. Initial login returns a refresh token only when `offline_access` was requested.
+Confidential clients authenticate using `client_secret_post` or `client_secret_basic`; configured public SPA clients use `none` and must use S256 PKCE. Secretless token and refresh exchanges are accepted only for IDs listed in `PublicClientIds`. Browser CORS origins are derived from `RedirectUris`; add the SPA callback URL there as well. Both token grants return an access token, `expires_in`, `token_type`, scopes, and ID token. Initial login returns a refresh token only when `offline_access` was requested.
 
 Emails are trimmed and lowercased. `sub` is deterministically derived from the normalized email. Access tokens and userinfo both contain `email`, `sub`, `email_verified: true`, `name`, and `nickname`. Display names derive from the email's local part. No role claims are injected: applications retain their own authorization logic.
 
@@ -155,7 +158,7 @@ Protocol errors use OAuth JSON (`error`, `error_description`). Other HTTP errors
 
 ## Scope and non-goals
 
-This is a mock of the authentication surface consumed by applications, **not a complete Auth0 emulator or certified OpenID Provider**. It does not implement a Management API, MFA, organizations, social/enterprise federation, tenant actions, password resets, real email verification, remembered SSO sessions, machine-to-machine grants, or every OIDC parameter. Its discovery `end_session_endpoint` points to the Auth0-style logout adapter, which expects `client_id` and `returnTo`, not the full standard RP-initiated logout contract.
+This mocks authorization-code login for Regular Web Applications and SPAs, **not a complete Auth0 emulator or certified OpenID Provider**. It does not implement implicit flow, client-credentials/machine-to-machine grants, a Management API, MFA, organizations, social/enterprise federation, tenant actions, password resets, real email verification, remembered SSO sessions, or every OIDC parameter. Its discovery `end_session_endpoint` points to the Auth0-style logout adapter, which expects `client_id` and `returnTo`, not the full standard RP-initiated logout contract.
 
 ## Development and verification
 
