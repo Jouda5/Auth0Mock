@@ -30,10 +30,12 @@ jobs:
       - run: dotnet test tests/Auth0Mock.Tests/Auth0Mock.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage" --settings coverage.runsettings --results-directory TestResults
       - run: npm ci
         working-directory: tests/browser
-      - run: npx playwright install --with-deps chromium
-        working-directory: tests/browser
+      - name: Verify runner Chrome is available
+        run: test -x /usr/bin/google-chrome
       - run: npm test
         working-directory: tests/browser
+        env:
+          AUTH0MOCK_CHROME_PATH: /usr/bin/google-chrome
       - run: dotnet list Auth0Mock.sln package --vulnerable --include-transitive
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()

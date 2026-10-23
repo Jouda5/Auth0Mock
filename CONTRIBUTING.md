@@ -6,6 +6,7 @@ Thank you for helping improve Auth0Mock.
 
 Use the .NET 10 SDK. Docker Compose, Python 3, and OpenSSL are needed only for the container smoke test.
 Browser tests additionally use Node.js 24+ and Playwright's Chromium (or an installed Chrome).
+CI uses the Chrome installation bundled with the Ubuntu 24.04 runner through `AUTH0MOCK_CHROME_PATH`, avoiding a second browser and system-package download.
 
 ```sh
 dotnet restore --locked-mode
