@@ -10,7 +10,7 @@ RUN dotnet publish src/Auth0Mock/Auth0Mock.csproj --configuration Release --no-r
     --output /app --property:UseAppHost=false --property:Version=$VERSION \
     --property:SourceRevisionId=$REVISION
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS runtime
 ARG VERSION=0.0.0-local
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="Auth0Mock" \
