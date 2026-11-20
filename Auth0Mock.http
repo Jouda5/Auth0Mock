@@ -1,5 +1,5 @@
 @baseUrl = https://localhost:7443
-@clientId = squirrel-local
+@clientId = local-client
 @clientSecret = local-development-only
 @code = paste-code-from-callback
 @accessToken = paste-access-token
@@ -15,7 +15,7 @@ GET {{baseUrl}}/.well-known/openid-configuration
 GET {{baseUrl}}/.well-known/jwks.json
 
 ### Email-only login (open in a browser to keep its CSRF cookie)
-GET {{baseUrl}}/authorize?response_type=code&client_id={{clientId}}&redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fcallback&scope=openid%20profile%20email%20offline_access&audience=https%3A%2F%2Fsquirrel.local%2Fapi&state=example-state
+GET {{baseUrl}}/authorize?response_type=code&client_id={{clientId}}&redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fcallback&scope=openid%20profile%20email%20offline_access&audience=https%3A%2F%2Fapi.example.com%2F&state=example-state
 
 ### Submit login (use matching values and cookie from the GET login page)
 POST {{baseUrl}}/authorize

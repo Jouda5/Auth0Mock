@@ -73,9 +73,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="https://localhost:7443")
     parser.add_argument("--ca-file", help="Explicitly trust this PEM certificate; TLS verification is never disabled.")
-    parser.add_argument("--client-id", default="squirrel-local")
+    parser.add_argument("--client-id", default="local-client")
     parser.add_argument("--client-secret", default="local-development-only", help="Mock-only dummy secret.")
-    parser.add_argument("--audience", default="https://squirrel.local/api")
+    parser.add_argument("--audience", default="https://api.example.com/")
     args = parser.parse_args()
     context = ssl.create_default_context(cafile=args.ca_file)
     browser = urllib.request.build_opener(
