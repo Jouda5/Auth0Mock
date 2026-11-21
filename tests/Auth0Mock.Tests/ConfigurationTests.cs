@@ -58,6 +58,25 @@ public sealed class ConfigurationTests
         Assert.True(new MockAuthOptionsValidator().Validate(null, options).Succeeded);
     }
 
+    [Theory]
+    [InlineData("developer@example.com", true)]
+    [InlineData("Developer@Example.com", true)]
+    [InlineData("not-an-email", false)]
+    [InlineData("Name <developer@example.com>", false)]
+    [InlineData("", false)]
+    public void PrefilledEmailConfigurationIsValidated(string prefilledEmail, bool valid)
+    {
+        var options = new MockAuthOptions
+        {
+            Issuer = MockApplication.Issuer,
+            PrefilledEmail = prefilledEmail,
+            RedirectUris = [MockApplication.RedirectUri],
+            LogoutRedirectUris = ["http://localhost:5173"],
+        };
+
+        Assert.Equal(valid, new MockAuthOptionsValidator().Validate(null, options).Succeeded);
+    }
+
     [Fact]
     public void GrantStorageIsBoundedAndExpiredEntriesAreReclaimed()
     {

@@ -5,7 +5,7 @@ namespace Auth0Mock.Endpoints;
 
 internal static class LoginPage
 {
-    internal static string Render(string requestId, AntiforgeryTokenSet antiforgery)
+    internal static string Render(string requestId, AntiforgeryTokenSet antiforgery, string? prefilledEmail = null)
     {
         var html = HtmlEncoder.Default;
         return $$"""
@@ -27,7 +27,7 @@ internal static class LoginPage
                   <input type="hidden" name="request_id" value="{{html.Encode(requestId)}}">
                   <input type="hidden" name="{{html.Encode(antiforgery.FormFieldName)}}" value="{{html.Encode(antiforgery.RequestToken!)}}">
                   <label for="email">Email address</label>
-                  <input id="email" name="email" type="email" maxlength="254" placeholder="developer@example.com" autocomplete="email" autocapitalize="none" spellcheck="false" list="recent-emails" autofocus required>
+                  <input id="email" name="email" type="email" maxlength="254" value="{{html.Encode(prefilledEmail ?? "")}}" placeholder="developer@example.com" autocomplete="email" autocapitalize="none" spellcheck="false" list="recent-emails" autofocus required>
                   <datalist id="recent-emails"></datalist>
                   <div class="email-history">
                     <span id="email-history-status" aria-live="polite">Recent addresses are saved on this browser only.</span>
