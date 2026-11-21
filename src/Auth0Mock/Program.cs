@@ -25,6 +25,11 @@ if (args is ["--health-check"])
 }
 
 var builder = WebApplication.CreateBuilder(args);
+var prefilledEmail = GetLaunchParameter(args, "prefilled-email");
+if (prefilledEmail is not null)
+{
+    builder.Configuration["MockAuth:PrefilledEmail"] = prefilledEmail;
+}
 if (!builder.Environment.IsDevelopment())
 {
     throw new InvalidOperationException("Auth0Mock deliberately requires ASPNETCORE_ENVIRONMENT=Development. Never use it in production.");
@@ -101,5 +106,24 @@ app.MapOpenApi();
 app.Logger.LogWarning("DEVELOPMENT ONLY: any valid email can sign in without verification. All sessions and signing keys are in memory.");
 app.Run();
 return 0;
+
+static string? GetLaunchParameter(string[] args, string name)
+{
+    var option = $"--{name}";
+    for (var index = 0; index < args.Length; index++)
+    {
+        if (args[index] == option)
+        {
+            return index + 1 < args.Length ? args[index + 1] : "";
+        }
+
+        if (args[index].StartsWith(option + "=", StringComparison.Ordinal))
+        {
+            return args[index][(option.Length + 1)..];
+        }
+    }
+
+    return null;
+}
 
 public partial class Program;

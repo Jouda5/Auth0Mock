@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using Microsoft.Extensions.Options;
 
 namespace Auth0Mock.Configuration;
@@ -7,6 +8,7 @@ public sealed class MockAuthOptions
     public const string SectionName = "MockAuth";
 
     public string Issuer { get; init; } = "";
+    public string? PrefilledEmail { get; init; }
     public string? ClientId { get; init; }
     public string? ClientSecret { get; init; }
     public string[] PublicClientIds { get; init; } = [];
@@ -45,6 +47,11 @@ public sealed class MockAuthOptionsValidator : IValidateOptions<MockAuthOptions>
             errors.Add("Optional ClientId, ClientSecret and Audience values must be nonempty and no longer than 1024 characters.");
         }
 
+        if (options.PrefilledEmail is not null && !IsValidEmail(options.PrefilledEmail))
+        {
+            errors.Add("MockAuth:PrefilledEmail must be a valid email address no longer than 254 characters.");
+        }
+
         if (options.PublicClientIds.Any(value => string.IsNullOrWhiteSpace(value) || value.Length > 1024)
             || options.PublicClientIds.Distinct(StringComparer.Ordinal).Count() != options.PublicClientIds.Length)
         {
@@ -71,6 +78,19 @@ public sealed class MockAuthOptionsValidator : IValidateOptions<MockAuthOptions>
 
     private static bool HasInvalidOptionalValue(string? value) =>
         value is not null && (string.IsNullOrWhiteSpace(value) || value.Length > 1024);
+
+    private static bool IsValidEmail(string value)
+    {
+        if (value.Length > 254)
+        {
+            return false;
+        }
+
+        var normalized = value.Trim().ToLowerInvariant();
+        return MailAddress.TryCreate(normalized, out var address)
+            && address.Address == normalized
+            && string.IsNullOrEmpty(address.DisplayName);
+    }
 
     private static void ValidateRedirects(string[] redirects, string name, List<string> errors)
     {

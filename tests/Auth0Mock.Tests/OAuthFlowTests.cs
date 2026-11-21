@@ -569,6 +569,28 @@ public sealed class OAuthFlowTests(MockApplication application) : IClassFixture<
     }
 
     [Fact]
+    public async Task PrefilledEmailIsRenderedOnLoginPage()
+    {
+        using var configured = application.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["MockAuth:PrefilledEmail"] = "Developer@Example.com",
+                })));
+        using var browser = configured.CreateClient(new()
+        {
+            BaseAddress = new(Issuer),
+            AllowAutoRedirect = false,
+        });
+        var response = await browser.GetAsync(QueryHelpers.AddQueryString("/authorize", AuthorizeParameters()));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var loginPage = await response.Content.ReadAsStringAsync();
+        Assert.Contains(
+            "id=\"email\" name=\"email\" type=\"email\" maxlength=\"254\" value=\"developer@example.com\"",
+            loginPage);
+    }
+
+    [Fact]
     public async Task FormRedirectPolicyUsesConfiguredOriginsWithoutPathsOrQueries()
     {
         const string callback = "https://callback.example:8443/sign-in;local?target=%20";

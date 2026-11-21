@@ -41,6 +41,14 @@ The launch profile supplies `ASPNETCORE_ENVIRONMENT=Development`. Outside Develo
 
 This command hosts a long-running web server; it stays running until stopped. Check `/health` for readiness rather than waiting for the command to exit.
 
+To prefill the email field on the authorization page, pass the optional launch parameter:
+
+```sh
+dotnet run --project src/Auth0Mock --launch-profile https -- --prefilled-email developer@example.com
+```
+
+You can also use the .NET configuration key `MockAuth:PrefilledEmail` (for example, `MockAuth__PrefilledEmail=developer@example.com` in an environment variable).
+
 ## Quick start: Docker with trusted HTTPS
 
 Requires running [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Linux containers), or Docker Engine on Linux. Public images on [Docker Hub](https://hub.docker.com/r/jouda5/auth0mock) support Linux AMD64 and ARM64. **No clone, build, or .NET SDK needed.**
@@ -258,6 +266,7 @@ Defaults live in [appsettings.json](src/Auth0Mock/appsettings.json). Use .NET co
 | `MockAuth` setting                 | Default                   | Constraints                                                                                      |
 | ---------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------ |
 | `Issuer`                           | `https://localhost:7443/` | Absolute HTTP(S) origin; trailing slash; no path, credentials, query, or fragment                |
+| `PrefilledEmail`                   | unset                     | Valid email address, at most 254 characters                                                      |
 | `ClientId`                         | unset                     | Any nonempty client ID is accepted when omitted; an explicitly configured ID is enforced         |
 | `ClientSecret`                     | unset                     | Any nonempty client secret is accepted when omitted; an explicitly configured secret is enforced |
 | `PublicClientIds`                  | `[]`                      | IDs of SPAs permitted to use secretless exchanges; S256 PKCE is mandatory                        |

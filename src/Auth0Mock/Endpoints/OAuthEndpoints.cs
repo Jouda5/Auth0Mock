@@ -86,7 +86,10 @@ public static class OAuthEndpoints
         var request = new AuthorizationRequest(Required(query["client_id"]), Required(query["redirect_uri"]),
             audience, Required(query["scope"]), Optional(query["state"]), Optional(query["nonce"]), challenge);
         var requestId = identities.BeginAuthorization(request);
-        return TypedResults.Content(LoginPage.Render(requestId, antiforgery.GetAndStoreTokens(context)), "text/html");
+        var prefilledEmail = options.Value.PrefilledEmail?.Trim().ToLowerInvariant();
+        return TypedResults.Content(
+            LoginPage.Render(requestId, antiforgery.GetAndStoreTokens(context), prefilledEmail),
+            "text/html");
     }
 
     private static async Task<IResult> CompleteAuthorization(
